@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SecGuard ReAct 助手</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <div class="popup-shell">
+      <header class="popup-header">
+        <div>
+          <h1>SecGuard 对话</h1>
+          <p>轻量安全告警 · ReAct 流程</p>
+        </div>
+        <button id="toggle-settings" class="ghost-btn" aria-label="设置">
+          ⚙️
+        </button>
+      </header>
+
+      <section class="conversation-panel" id="conversation"></section>
+
+      <section class="input-panel">
+        <label class="field">
+          <span>安全告警</span>
+          <textarea
+            id="alert-input"
+            rows="4"
+            placeholder="粘贴安全告警原文或描述事件…"
+          ></textarea>
+        </label>
+
+        <div class="cta-row">
+          <small id="status-label">准备就绪</small>
+          <button id="send-btn">开始分析</button>
+        </div>
+      </section>
+    </div>
+
+    <aside class="settings-drawer" id="settings-drawer">
+      <header>
+        <h2>配置</h2>
+        <button id="close-settings" class="ghost-btn">✖</button>
+      </header>
+      <section>
+        <h3>大模型</h3>
+        <label class="field">
+          <span>API 地址</span>
+          <input
+            id="llm-endpoint"
+            type="url"
+            placeholder="https://api.openai.com/v1/chat/completions"
+          />
+        </label>
+        <label class="field">
+          <span>API Key</span>
+          <input id="api-key" type="password" placeholder="sk-..." />
+        </label>
+        <label class="field">
+          <span>Authorization（可选）</span>
+          <input
+            id="auth-header"
+            type="text"
+            placeholder="Bearer xxx / Basic xxx"
+          />
+        </label>
+      </section>
+
+      <section>
+        <h3>MCP Server</h3>
+        <label class="field">
+          <span>Server URL</span>
+          <input
+            id="mcp-server"
+            type="url"
+            placeholder="https://your-mcp.example.com/rpc"
+          />
+        </label>
+        <label class="field">
+          <span>默认工具</span>
+          <input
+            id="mcp-tool"
+            type="text"
+            placeholder="security_enrichment"
+          />
+        </label>
+        <div class="checkbox-field">
+          <input id="auto-run" type="checkbox" />
+          <label for="auto-run">自动触发 MCP 工具</label>
+        </div>
+      </section>
+
+      <div class="drawer-actions">
+        <button id="save-settings">保存配置</button>
+      </div>
+    </aside>
+
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>
+

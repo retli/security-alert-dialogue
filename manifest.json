@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "SecGuard ReAct 助手",
+  "description": "对话式安全告警助手，支持自定义大模型与MCP工具链。",
+  "version": "0.1.0",
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://localhost/*"
+  ]
+}
+

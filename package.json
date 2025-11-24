@@ -1,0 +1,24 @@
+{
+  "name": "security-alert-dialogue",
+  "version": "1.0.0",
+  "description": "轻量级 Chrome 插件，以对话框形式协助处理安全告警。核心能力：",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "node ./scripts/build.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/openai": "^1.1.2",
+    "langchain": "^1.0.6",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.31",
+    "esbuild": "^0.27.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
