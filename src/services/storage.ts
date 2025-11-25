@@ -1,10 +1,22 @@
 export const STORAGE_KEY = "secguard.settings";
 
+export interface McpTool {
+  name: string;
+  description?: string;
+  args?: unknown;
+  returns?: unknown;
+  examples?: unknown;
+  parameters?: unknown;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  [key: string]: unknown;
+}
+
 export interface McpServerConfig {
   id: string;
   name: string;
   url: string;
-  tools: string[];
+  tools: McpTool[];
 }
 
 export interface SecGuardSettings {
@@ -68,6 +80,24 @@ function generateId() {
   return `mcp-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
 }
 
+function normalizeToolEntry(entry: unknown): McpTool | null {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const name = entry.trim();
+    if (!name) return null;
+    return { name };
+  }
+  if (typeof entry === "object") {
+    const candidate = entry as Record<string, unknown>;
+    const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+    if (!name) {
+      return null;
+    }
+    return { ...candidate, name } as McpTool;
+  }
+  return null;
+}
+
 function normalizeServers(settings: Partial<SecGuardSettings>) {
   const next = { ...settings };
   if (!next.mcpServers) {
@@ -84,11 +114,24 @@ function normalizeServers(settings: Partial<SecGuardSettings>) {
         id: generateId(),
         name: "默认 Server",
         url: (settings as any).mcpServer,
-        tools: next.mcpTool ? [next.mcpTool] : []
+        tools: next.mcpTool ? [{ name: next.mcpTool }] : []
       }
     ];
     next.activeMcpServerId = next.mcpServers[0].id;
   }
+
+  next.mcpServers = next.mcpServers.map((server) => {
+    const fallbackTools = Array.isArray((server as any).tools)
+      ? ((server as any).tools as unknown[])
+      : [];
+    const normalizedTools = fallbackTools
+      .map((tool) => normalizeToolEntry(tool))
+      .filter((tool): tool is McpTool => Boolean(tool));
+    return {
+      ...server,
+      tools: normalizedTools
+    };
+  });
 
   if (!next.activeMcpServerId && next.mcpServers.length) {
     next.activeMcpServerId = next.mcpServers[0].id;

@@ -1,4 +1,4 @@
-import type { SecGuardSettings } from "../services/storage";
+import type { SecGuardSettings, McpTool } from "../services/storage";
 import { MCPClient } from "../services/mcpClient";
 import type { MCPResult } from "../services/mcpClient";
 
@@ -16,7 +16,19 @@ Final Answer: <仅在完成全部推理后输出>
 
 必须使用中文回答，且不得泄露任何密钥。`;
 
-function buildUserPrompt(alert: string, tools: string[]) {
+function formatJsonSnippet(payload: unknown) {
+  if (payload === undefined || payload === null) return "";
+  try {
+    const serialized = JSON.stringify(payload, null, 2);
+    return serialized.length > 400
+      ? `${serialized.slice(0, 397)}...`
+      : serialized;
+  } catch {
+    return String(payload);
+  }
+}
+
+function buildUserPrompt(alert: string, tools: McpTool[]) {
   const sections = [
     "以下是最新的安全告警，请基于 ReAct 链路完成研判：",
     "",
@@ -27,7 +39,28 @@ function buildUserPrompt(alert: string, tools: string[]) {
     sections.push(
       "",
       "当前可用的 MCP 工具（只能调用这些，禁止杜撰其他工具）：",
-      ...tools.map((tool) => `- MCP.${tool}`)
+      ...tools.map((tool) => {
+        const lines = [`- MCP.${tool.name}`];
+        if (tool.description) {
+          lines.push(`  描述：${tool.description}`);
+        }
+        const argPayload =
+          tool.args ?? tool.parameters ?? tool.inputSchema ?? undefined;
+        const argSnippet = formatJsonSnippet(argPayload);
+        if (argSnippet) {
+          lines.push(`  输入参数：${argSnippet}`);
+        }
+        const returnPayload = tool.returns ?? tool.outputSchema ?? undefined;
+        const returnSnippet = formatJsonSnippet(returnPayload);
+        if (returnSnippet) {
+          lines.push(`  返回值：${returnSnippet}`);
+        }
+        const exampleSnippet = formatJsonSnippet(tool.examples);
+        if (exampleSnippet) {
+          lines.push(`  示例：${exampleSnippet}`);
+        }
+        return lines.join("\n");
+      })
     );
   } else {
     sections.push("", "当前未配置 MCP 工具，请直接输出 Final Answer。");
@@ -193,7 +226,7 @@ function parseSseCompletionPayload(raw: string): string {
 export class ReactAgent {
   private settings: SecGuardSettings | null = null;
   private mcpClient = new MCPClient();
-  private availableTools: string[] = [];
+  private availableTools: McpTool[] = [];
 
   updateSettings(settings: SecGuardSettings) {
     this.settings = settings;
@@ -365,10 +398,10 @@ export class ReactAgent {
       const tool = action.replace("MCP.", "").trim();
       if (
         this.availableTools.length &&
-        !this.availableTools.includes(tool)
+        !this.availableTools.some((item) => item.name === tool)
       ) {
         throw new Error(
-          `LLM 尝试调用未配置的 MCP 工具：${tool}，请检查 Prompt 或 MCP 配置。`
+          `LLM 尝试调用未配置的 MCP 工具：${tool}，请检查工具列表提示或 MCP 配置。`
         );
       }
       return this.mcpClient.invokeTool(tool, input);

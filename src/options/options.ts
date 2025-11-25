@@ -1,7 +1,8 @@
 import {
   StorageService,
   type SecGuardSettings,
-  type McpServerConfig
+  type McpServerConfig,
+  type McpTool
 } from "../services/storage";
 import { discoverMcpTools } from "../services/mcpDiscovery";
 
@@ -61,6 +62,7 @@ let serversState: {
   list: McpServerConfig[];
   activeId: string | null;
 } = { list: [], activeId: null };
+let currentFormTools: McpTool[] = [];
 
 function setStatus(el: HTMLElement, text: string, type?: "success" | "error") {
   el.textContent = text;
@@ -103,8 +105,9 @@ function renderServerOptions(selectedId?: string | null) {
   serverSelect.value = targetId || "";
 }
 
-function renderToolOptions(tools: string[], selected?: string) {
+function renderToolOptions(tools: McpTool[], selected?: string) {
   toolSelect.innerHTML = "";
+  currentFormTools = tools ?? [];
   if (!tools.length) {
     const placeholder = document.createElement("option");
     placeholder.value = "";
@@ -115,14 +118,20 @@ function renderToolOptions(tools: string[], selected?: string) {
   }
   tools.forEach((tool) => {
     const option = document.createElement("option");
-    option.value = tool;
-    option.textContent = tool;
+    option.value = tool.name;
+    option.textContent = tool.description
+      ? `${tool.name}｜${tool.description}`
+      : tool.name;
     toolSelect.appendChild(option);
   });
-  if (selected && tools.includes(selected)) {
-    toolSelect.value = selected;
+  const targetName =
+    selected && tools.some((tool) => tool.name === selected)
+      ? selected
+      : tools[0]?.name;
+  if (targetName) {
+    toolSelect.value = targetName;
   } else {
-    toolSelect.value = tools[0];
+    toolSelect.value = "";
   }
 }
 
@@ -277,7 +286,7 @@ discoverBtn.addEventListener("click", async () => {
     if (!tools.length) {
       throw new Error("未发现任何工具，请检查 MCP Server 是否注册工具");
     }
-    renderToolOptions(tools, tools[0]);
+    renderToolOptions(tools, tools[0]?.name);
     setStatus(discoverStatus, `发现 ${tools.length} 个工具`, "success");
   } catch (error) {
     const message =
@@ -289,9 +298,7 @@ discoverBtn.addEventListener("click", async () => {
 saveServerBtn.addEventListener("click", async () => {
   const name = serverNameInput.value.trim();
   const url = serverUrlInput.value.trim();
-  const tools = Array.from(toolSelect.options)
-    .map((option) => option.value)
-    .filter(Boolean);
+  const tools = currentFormTools.map((tool) => ({ ...tool }));
 
   if (!name) {
     setStatus(discoverStatus, "请填写 Server 名称", "error");
@@ -306,7 +313,7 @@ saveServerBtn.addEventListener("click", async () => {
     return;
   }
 
-  const selectedTool = toolSelect.value || tools[0];
+  const selectedTool = toolSelect.value || tools[0]?.name;
   const selectedId = serverSelect.value || serversState.activeId;
   let target = serversState.list.find((server) => server.id === selectedId);
 

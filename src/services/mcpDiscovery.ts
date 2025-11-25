@@ -1,23 +1,33 @@
 import { appendTimestamp, resolveSessionUrl } from "./mcpSseHelpers";
+import type { McpTool } from "./storage";
 
-function parseTools(payload: unknown): string[] {
+function toToolObject(entry: unknown): McpTool | null {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const name = entry.trim();
+    return name ? { name } : null;
+  }
+  if (typeof entry === "object") {
+    const obj = entry as Record<string, unknown>;
+    const name =
+      typeof obj.name === "string"
+        ? obj.name.trim()
+        : typeof obj.id === "string"
+          ? obj.id.trim()
+          : "";
+    if (!name) return null;
+    return { ...obj, name } as McpTool;
+  }
+  return null;
+}
+
+function parseTools(payload: unknown): McpTool[] {
   if (!payload) return [];
 
   if (Array.isArray(payload)) {
     return payload
-      .map((item) => {
-        if (typeof item === "string") return item;
-        if (
-          item &&
-          typeof item === "object" &&
-          "name" in item &&
-          typeof (item as { name: unknown }).name === "string"
-        ) {
-          return (item as { name: string }).name;
-        }
-        return "";
-      })
-      .filter(Boolean);
+      .map((item) => toToolObject(item))
+      .filter((tool): tool is McpTool => Boolean(tool));
   }
 
   if (typeof payload === "object") {
@@ -33,7 +43,7 @@ function parseTools(payload: unknown): string[] {
 export async function discoverMcpTools(
   sseUrl: string,
   timeoutMs = 15000
-): Promise<string[]> {
+): Promise<McpTool[]> {
   if (!sseUrl) {
     throw new Error("请提供 MCP SSE 地址");
   }
@@ -46,7 +56,7 @@ export async function discoverMcpTools(
     let toolsListId: number | null = null;
     let es: EventSource | null = null;
 
-    const finish = (tools: string[]) => {
+    const finish = (tools: McpTool[]) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
