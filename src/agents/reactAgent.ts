@@ -114,8 +114,9 @@ export class ReactAgent {
   updateSettings(settings: SecGuardSettings) {
     this.settings = settings;
     this.mcpClient.updateConfig({
-      mcpServer: settings.mcpServer,
-      mcpTool: settings.mcpTool
+      servers: settings.mcpServers ?? [],
+      activeServerId: settings.activeMcpServerId ?? null,
+      defaultTool: settings.mcpTool
     });
   }
 

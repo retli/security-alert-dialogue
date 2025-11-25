@@ -4,7 +4,7 @@
 
 - 自研 ReAct Agent：通过定制 LLM 请求与工具循环自动解析 `Thought / Action / Observation / Final Answer`。
 - 自定义大模型：通过 API 地址、API Key、Access Code 三项配置对接任意兼容接口，并可在 Options 页面一键测试。
-- MCP Server 集成：将 Action 自动映射为远程工具调用，可连接自建安全情报 / SOAR 能力，同样支持测试连通性。
+- MCP Server 管理：支持为每个 Server 命名、自动发现工具列表并以下拉方式选择默认工具，可保存多个 Server 并在侧栏中切换。
 - Cursor 风格 UI：深色对话面板、单输入框快速粘贴，支持快捷键 `⌘/Ctrl + Enter` 发送。
 
 ### 目录结构
@@ -59,11 +59,12 @@ security-alert-dialogue/
 | API Key | 仅写入请求头 `apikey: *****`，不再附带 Bearer |
 | Access Code | 自动拼接为 `Authorization: ACCESSCODE ********`，与 Cursor 同款鉴权保持一致 |
 | 模型名称 | 下拉选择常用模型或输入自定义名称 |
-| MCP Server URL | 你部署的 MCP Server HTTP 入口 |
-| 默认工具 | ReAct `Action` 未显式指定时使用的 tool 名称 |
+| MCP Server | 可保存多个 Server，每个包含名称与 URL |
+| 自动发现工具 | 点击「发现工具」后会通过 GET 请求列出 `tools`，并自动填充到下拉框 |
+| 默认工具 | 在下拉框中选择的工具将作为 `Action` 的默认值 |
 | 自动触发 MCP | 关闭时需要人工执行工具，开启则自动调用 |
 
-> 插件使用 `chrome.storage.local` 存储配置，可在 Options 页面点击「测试模型连接」或「测试 MCP 连接」即时验证，未填 API Key 时会走本地 Mock 流程，方便离线演示。
+> 插件使用 `chrome.storage.local` 存储配置，可在 Options 页面为多个 MCP Server 命名管理、自动发现工具，并点击「测试模型连接」或「测试 MCP 连接」即时验证。未填 API Key 时会走本地 Mock 流程，方便离线演示。
 
 ### ReAct 运行方式
 

@@ -1,6 +1,7 @@
 import {
   StorageService,
-  type SecGuardSettings
+  type SecGuardSettings,
+  type McpServerConfig
 } from "../services/storage";
 
 const llmEndpointInput = document.getElementById(
@@ -11,12 +12,34 @@ const modelNameInput = document.getElementById("model-name") as HTMLInputElement
 const accessCodeInput = document.getElementById(
   "access-code"
 ) as HTMLInputElement;
-const mcpServerInput = document.getElementById(
-  "mcp-server"
-) as HTMLInputElement;
-const mcpToolInput = document.getElementById("mcp-tool") as HTMLInputElement;
 const autoRunCheckbox = document.getElementById("auto-run") as HTMLInputElement;
 const maxStepsInput = document.getElementById("max-steps") as HTMLInputElement;
+
+const serverSelect = document.getElementById(
+  "mcp-server-select"
+) as HTMLSelectElement;
+const serverNameInput = document.getElementById(
+  "mcp-server-name"
+) as HTMLInputElement;
+const serverUrlInput = document.getElementById(
+  "mcp-server-url"
+) as HTMLInputElement;
+const toolSelect = document.getElementById(
+  "mcp-tool-select"
+) as HTMLSelectElement;
+
+const discoverBtn = document.getElementById(
+  "discover-tools"
+) as HTMLButtonElement;
+const discoverStatus = document.getElementById(
+  "discover-status"
+) as HTMLElement;
+const saveServerBtn = document.getElementById(
+  "save-server"
+) as HTMLButtonElement;
+const removeServerBtn = document.getElementById(
+  "remove-server"
+) as HTMLButtonElement;
 
 const modelTestBtn = document.getElementById("test-llm") as HTMLButtonElement;
 const modelTestStatus = document.getElementById(
@@ -33,6 +56,10 @@ const backToPopupBtn = document.getElementById(
 ) as HTMLButtonElement;
 
 let currentSettings: SecGuardSettings | null = null;
+let serversState: {
+  list: McpServerConfig[];
+  activeId: string | null;
+} = { list: [], activeId: null };
 
 function setStatus(el: HTMLElement, text: string, type?: "success" | "error") {
   el.textContent = text;
@@ -42,15 +69,89 @@ function setStatus(el: HTMLElement, text: string, type?: "success" | "error") {
   }
 }
 
+function randomId() {
+  return crypto.randomUUID?.() ?? `mcp-${Date.now()}-${Math.random()}`;
+}
+
+function getActiveServer(): McpServerConfig | null {
+  if (!serversState.list.length) return null;
+  if (serversState.activeId) {
+    const found = serversState.list.find(
+      (server) => server.id === serversState.activeId
+    );
+    if (found) return found;
+  }
+  return serversState.list[0];
+}
+
+function renderServerOptions(selectedId?: string | null) {
+  serverSelect.innerHTML = "";
+  serversState.list.forEach((server) => {
+    const option = document.createElement("option");
+    option.value = server.id;
+    option.textContent = server.name || server.url;
+    serverSelect.appendChild(option);
+  });
+  if (serversState.list.length === 0) {
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "暂无 Server，请先添加";
+    serverSelect.appendChild(placeholder);
+  }
+  const targetId = selectedId ?? serversState.activeId ?? "";
+  serverSelect.value = targetId || "";
+}
+
+function renderToolOptions(tools: string[], selected?: string) {
+  toolSelect.innerHTML = "";
+  if (!tools.length) {
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "暂无工具，请先发现";
+    toolSelect.appendChild(placeholder);
+    toolSelect.value = "";
+    return;
+  }
+  tools.forEach((tool) => {
+    const option = document.createElement("option");
+    option.value = tool;
+    option.textContent = tool;
+    toolSelect.appendChild(option);
+  });
+  if (selected && tools.includes(selected)) {
+    toolSelect.value = selected;
+  } else {
+    toolSelect.value = tools[0];
+  }
+}
+
+function hydrateServerForm(server: McpServerConfig | null, selectedTool?: string) {
+  if (!server) {
+    serverNameInput.value = "";
+    serverUrlInput.value = "";
+    renderToolOptions([], "");
+    return;
+  }
+  serverNameInput.value = server.name ?? "";
+  serverUrlInput.value = server.url ?? "";
+  renderToolOptions(server.tools ?? [], selectedTool);
+}
+
 function hydrateForm(settings: SecGuardSettings) {
   llmEndpointInput.value = settings.llmEndpoint ?? "";
   apiKeyInput.value = settings.apiKey ?? "";
   modelNameInput.value = settings.modelName ?? "";
   accessCodeInput.value = settings.accessCode ?? "";
-  mcpServerInput.value = settings.mcpServer ?? "";
-  mcpToolInput.value = settings.mcpTool ?? "";
   autoRunCheckbox.checked = Boolean(settings.autoRun);
   maxStepsInput.value = String(settings.maxSteps ?? 6);
+
+  serversState = {
+    list: settings.mcpServers ?? [],
+    activeId: settings.activeMcpServerId ?? settings.mcpServers?.[0]?.id ?? null
+  };
+
+  renderServerOptions();
+  hydrateServerForm(getActiveServer(), settings.mcpTool ?? "");
 }
 
 function collectFormSettings(): Partial<SecGuardSettings> {
@@ -59,24 +160,20 @@ function collectFormSettings(): Partial<SecGuardSettings> {
     apiKey: apiKeyInput.value.trim(),
     modelName: modelNameInput.value.trim(),
     accessCode: accessCodeInput.value.trim(),
-    mcpServer: mcpServerInput.value.trim(),
-    mcpTool: mcpToolInput.value.trim(),
     autoRun: autoRunCheckbox.checked,
-    maxSteps: Number(maxStepsInput.value) || 6
+    maxSteps: Number(maxStepsInput.value) || 6,
+    mcpServers: serversState.list,
+    activeMcpServerId: serversState.activeId,
+    mcpTool: toolSelect.value.trim()
   };
 }
 
 function buildPendingSettings(): SecGuardSettings | null {
   if (!currentSettings) return null;
-  const merged = {
+  return {
     ...currentSettings,
     ...collectFormSettings()
-  } as SecGuardSettings;
-  merged.accessCode = merged.accessCode ?? "";
-  merged.authHeader = merged.accessCode
-    ? `ACCESSCODE ${merged.accessCode}`
-    : "";
-  return merged;
+  };
 }
 
 function buildLLMHeaders(settings: SecGuardSettings) {
@@ -87,7 +184,9 @@ function buildLLMHeaders(settings: SecGuardSettings) {
     headers.apikey = settings.apiKey;
   }
   if (settings.accessCode) {
-    headers.Authorization = `ACCESSCODE ${settings.accessCode}`;
+    headers.Authorization = settings.accessCode.startsWith("Bearer")
+      ? settings.accessCode
+      : `ACCESSCODE ${settings.accessCode}`;
   }
   return headers;
 }
@@ -118,33 +217,36 @@ async function testModelConnection(settings: SecGuardSettings) {
   await response.json().catch(() => null);
 }
 
-async function testMcpConnection(settings: SecGuardSettings) {
-  if (!settings.mcpServer) {
-    throw new Error("请填写 MCP Server URL");
+function resolveMcpServer(settings: SecGuardSettings) {
+  if (!settings.mcpServers?.length) return null;
+  if (settings.activeMcpServerId) {
+    const server = settings.mcpServers.find(
+      (item) => item.id === settings.activeMcpServerId
+    );
+    if (server) return server;
   }
-  const response = await fetch(settings.mcpServer, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      tool: settings.mcpTool || "health_check",
-      input: { heartbeat: Date.now() }
-    })
-  });
+  return settings.mcpServers[0];
+}
+
+async function testMcpConnection(settings: SecGuardSettings) {
+  const server = resolveMcpServer(settings);
+  if (!server) {
+    throw new Error("请先保存一个 MCP Server");
+  }
+
+  const response = await fetch(server.url, { method: "GET" });
 
   if (!response.ok) {
     const errText = await response.text();
     throw new Error(errText || `HTTP ${response.status}`);
   }
-  await response.text().catch(() => null);
 }
 
-async function handleSave() {
+async function handleSave(payload?: Partial<SecGuardSettings>) {
   setStatus(saveStatus, "保存中…");
   try {
-    const payload = collectFormSettings();
-    const saved = await StorageService.saveSettings(payload);
+    const mergePayload = payload ?? collectFormSettings();
+    const saved = await StorageService.saveSettings(mergePayload);
     currentSettings = saved;
     setStatus(saveStatus, "配置已保存", "success");
   } catch (error) {
@@ -167,6 +269,128 @@ async function bootstrap() {
     setStatus(saveStatus, message, "error");
   }
 }
+
+function extractToolNames(data: unknown): string[] {
+  if (!data) return [];
+  if (Array.isArray(data)) {
+    if (data.every((item) => typeof item === "string")) {
+      return data as string[];
+    }
+    return data
+      .map((item) =>
+        item && typeof item === "object" && "name" in item
+          ? String((item as Record<string, unknown>).name)
+          : ""
+      )
+      .filter(Boolean);
+  }
+  if (typeof data === "object") {
+    if (Array.isArray((data as Record<string, unknown>).tools)) {
+      return extractToolNames((data as Record<string, unknown>).tools);
+    }
+  }
+  return [];
+}
+
+discoverBtn.addEventListener("click", async () => {
+  const url = serverUrlInput.value.trim();
+  if (!url) {
+    setStatus(discoverStatus, "请填写 Server URL", "error");
+    return;
+  }
+  setStatus(discoverStatus, "发现中…");
+  try {
+    const response = await fetch(url, { method: "GET" });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || `HTTP ${response.status}`);
+    }
+    const data = await response.json().catch(() => null);
+    const tools = extractToolNames(data);
+    if (!tools.length) {
+      throw new Error("未发现任何工具，请检查返回格式");
+    }
+    renderToolOptions(tools, tools[0]);
+    setStatus(discoverStatus, `发现 ${tools.length} 个工具`, "success");
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "发现工具失败";
+    setStatus(discoverStatus, message, "error");
+  }
+});
+
+saveServerBtn.addEventListener("click", async () => {
+  const name = serverNameInput.value.trim();
+  const url = serverUrlInput.value.trim();
+  const tools = Array.from(toolSelect.options)
+    .map((option) => option.value)
+    .filter(Boolean);
+
+  if (!name) {
+    setStatus(discoverStatus, "请填写 Server 名称", "error");
+    return;
+  }
+  if (!url) {
+    setStatus(discoverStatus, "请填写 Server URL", "error");
+    return;
+  }
+  if (!tools.length || !toolSelect.value) {
+    setStatus(discoverStatus, "请先发现并选择工具", "error");
+    return;
+  }
+
+  const selectedTool = toolSelect.value || tools[0];
+  const selectedId = serverSelect.value || serversState.activeId;
+  let target = serversState.list.find((server) => server.id === selectedId);
+
+  if (target) {
+    target.name = name;
+    target.url = url;
+    target.tools = tools;
+  } else {
+    target = {
+      id: randomId(),
+      name,
+      url,
+      tools
+    };
+    serversState.list.push(target);
+  }
+
+  serversState.activeId = target.id;
+  renderServerOptions(target.id);
+  toolSelect.value = selectedTool;
+
+  await handleSave({
+    ...collectFormSettings(),
+    mcpServers: serversState.list,
+    activeMcpServerId: serversState.activeId,
+    mcpTool: selectedTool
+  });
+  setStatus(discoverStatus, "Server 已保存", "success");
+});
+
+removeServerBtn.addEventListener("click", async () => {
+  if (!serversState.activeId) return;
+  serversState.list = serversState.list.filter(
+    (server) => server.id !== serversState.activeId
+  );
+  serversState.activeId = serversState.list[0]?.id ?? null;
+  renderServerOptions();
+  hydrateServerForm(getActiveServer(), toolSelect.value);
+  await handleSave({
+    ...collectFormSettings(),
+    mcpServers: serversState.list,
+    activeMcpServerId: serversState.activeId
+  });
+});
+
+serverSelect.addEventListener("change", () => {
+  const selectedId = serverSelect.value;
+  serversState.activeId = selectedId || null;
+  const server = getActiveServer();
+  hydrateServerForm(server, toolSelect.value);
+});
 
 modelTestBtn.addEventListener("click", async () => {
   const pending = buildPendingSettings();
@@ -196,7 +420,7 @@ mcpTestBtn.addEventListener("click", async () => {
   }
 });
 
-saveBtn.addEventListener("click", handleSave);
+saveBtn.addEventListener("click", () => handleSave());
 
 backToPopupBtn.addEventListener("click", () => {
   if (chrome?.runtime?.sendMessage) {

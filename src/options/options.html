@@ -59,16 +59,34 @@
       <section class="card">
         <h2>MCP Server</h2>
         <div class="field">
-          <label for="mcp-server">Server URL</label>
+          <label for="mcp-server-select">已保存的 Server</label>
+          <select id="mcp-server-select"></select>
+        </div>
+        <div class="field">
+          <label for="mcp-server-name">Server 名称</label>
+          <input id="mcp-server-name" type="text" placeholder="如：内部情报 MCP" />
+        </div>
+        <div class="field">
+          <label for="mcp-server-url">Server URL</label>
           <input
-            id="mcp-server"
+            id="mcp-server-url"
             type="url"
             placeholder="https://your-mcp.example.com/rpc"
           />
         </div>
+        <div class="inline-actions">
+          <button id="discover-tools" type="button">发现工具</button>
+          <span id="discover-status" class="status"></span>
+        </div>
         <div class="field">
-          <label for="mcp-tool">默认工具</label>
-          <input id="mcp-tool" type="text" placeholder="security_enrichment" />
+          <label for="mcp-tool-select">工具列表</label>
+          <select id="mcp-tool-select"></select>
+        </div>
+        <div class="inline-actions">
+          <button id="save-server" type="button">保存/更新 Server</button>
+          <button id="remove-server" type="button" class="ghost-btn">
+            删除当前 Server
+          </button>
         </div>
         <div class="checkbox-field">
           <input id="auto-run" type="checkbox" />

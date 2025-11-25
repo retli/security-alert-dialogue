@@ -1,6 +1,9 @@
+import type { McpServerConfig } from "./storage";
+
 export interface MCPConfig {
-  mcpServer?: string;
-  mcpTool?: string;
+  servers?: McpServerConfig[];
+  activeServerId?: string | null;
+  defaultTool?: string;
 }
 
 export type MCPResult =
@@ -12,29 +15,40 @@ export type MCPResult =
     };
 
 export class MCPClient {
-  private serverUrl?: string;
+  private servers: McpServerConfig[] = [];
+  private activeServerId: string | null = null;
   private defaultTool?: string;
 
   constructor(config: MCPConfig = {}) {
-    this.serverUrl = config.mcpServer;
-    this.defaultTool = config.mcpTool;
+    this.updateConfig(config);
   }
 
-  updateConfig({ mcpServer, mcpTool }: MCPConfig) {
-    if (mcpServer !== undefined) this.serverUrl = mcpServer;
-    if (mcpTool !== undefined) this.defaultTool = mcpTool;
+  updateConfig({ servers, activeServerId, defaultTool }: MCPConfig) {
+    if (servers) this.servers = servers;
+    if (activeServerId !== undefined) this.activeServerId = activeServerId;
+    if (defaultTool !== undefined) this.defaultTool = defaultTool;
+  }
+
+  private getActiveServer(): McpServerConfig | undefined {
+    if (!this.servers.length) return undefined;
+    if (this.activeServerId) {
+      const match = this.servers.find((srv) => srv.id === this.activeServerId);
+      if (match) return match;
+    }
+    return this.servers[0];
   }
 
   async invokeTool(toolName?: string, input?: unknown): Promise<MCPResult> {
+    const server = this.getActiveServer();
     const resolvedTool = toolName || this.defaultTool;
-    if (!this.serverUrl || !resolvedTool) {
+    if (!server || !resolvedTool) {
       return {
         status: "skipped",
         message: "未配置 MCP Server/Tool，返回示例观察。"
       };
     }
 
-    const response = await fetch(this.serverUrl, {
+    const response = await fetch(server.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
