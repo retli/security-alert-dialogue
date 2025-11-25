@@ -16,12 +16,24 @@ Final Answer: <仅在完成全部推理后输出>
 
 必须使用中文回答，且不得泄露任何密钥。`;
 
-function buildUserPrompt(alert: string) {
-  return [
+function buildUserPrompt(alert: string, tools: string[]) {
+  const sections = [
     "以下是最新的安全告警，请基于 ReAct 链路完成研判：",
     "",
     alert.trim()
-  ].join("\n");
+  ];
+
+  if (tools.length) {
+    sections.push(
+      "",
+      "当前可用的 MCP 工具（只能调用这些，禁止杜撰其他工具）：",
+      ...tools.map((tool) => `- MCP.${tool}`)
+    );
+  } else {
+    sections.push("", "当前未配置 MCP 工具，请直接输出 Final Answer。");
+  }
+
+  return sections.join("\n");
 }
 
 export type AgentEvent =
@@ -181,9 +193,15 @@ function parseSseCompletionPayload(raw: string): string {
 export class ReactAgent {
   private settings: SecGuardSettings | null = null;
   private mcpClient = new MCPClient();
+  private availableTools: string[] = [];
 
   updateSettings(settings: SecGuardSettings) {
     this.settings = settings;
+    const activeServer =
+      settings.mcpServers?.find(
+        (srv) => srv.id === settings.activeMcpServerId
+      ) || settings.mcpServers?.[0];
+    this.availableTools = activeServer?.tools ?? [];
     this.mcpClient.updateConfig({
       servers: settings.mcpServers ?? [],
       activeServerId: settings.activeMcpServerId ?? null,
@@ -205,7 +223,7 @@ export class ReactAgent {
 
     const messages: ChatMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(alert) }
+      { role: "user", content: buildUserPrompt(alert, this.availableTools) }
     ];
 
     const maxSteps = this.settings.maxSteps ?? 6;
@@ -345,6 +363,14 @@ export class ReactAgent {
   private async executeTool(action: string, input: unknown) {
     if (action.startsWith("MCP.")) {
       const tool = action.replace("MCP.", "").trim();
+      if (
+        this.availableTools.length &&
+        !this.availableTools.includes(tool)
+      ) {
+        throw new Error(
+          `LLM 尝试调用未配置的 MCP 工具：${tool}，请检查 Prompt 或 MCP 配置。`
+        );
+      }
       return this.mcpClient.invokeTool(tool, input);
     }
     if (action === "report") {
