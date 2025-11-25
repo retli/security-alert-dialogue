@@ -1,5 +1,9 @@
-import { StorageService, type SecGuardSettings } from "../services/storage";
-import { LangchainAgent, type AgentEvent } from "../agents/langchainAgent";
+import {
+  StorageService,
+  type SecGuardSettings,
+  STORAGE_KEY
+} from "../services/storage";
+import { ReactAgent, type AgentEvent } from "../agents/reactAgent";
 
 type ConversationMessage = {
   role: "user" | "assistant" | "system";
@@ -13,18 +17,14 @@ const alertInput = document.getElementById("alert-input") as HTMLTextAreaElement
 const statusLabel = document.getElementById("status-label") as HTMLElement;
 const sendBtn = document.getElementById("send-btn") as HTMLButtonElement;
 
-const drawer = document.getElementById("settings-drawer") as HTMLElement;
-const toggleSettingsBtn = document.getElementById("toggle-settings") as HTMLButtonElement;
-const closeSettingsBtn = document.getElementById("close-settings") as HTMLButtonElement;
-const saveSettingsBtn = document.getElementById("save-settings") as HTMLButtonElement;
-const apiKeyInput = document.getElementById("api-key") as HTMLInputElement;
-const authHeaderInput = document.getElementById("auth-header") as HTMLInputElement;
-const llmEndpointInput = document.getElementById("llm-endpoint") as HTMLInputElement;
-const mcpServerInput = document.getElementById("mcp-server") as HTMLInputElement;
-const mcpToolInput = document.getElementById("mcp-tool") as HTMLInputElement;
-const autoRunCheckbox = document.getElementById("auto-run") as HTMLInputElement;
+const openOptionsBtn = document.getElementById(
+  "open-options"
+) as HTMLButtonElement;
+const resizeHandle = document.getElementById(
+  "resize-handle"
+) as HTMLDivElement | null;
 
-const agent = new LangchainAgent();
+const agent = new ReactAgent();
 
 const state: {
   settings: SecGuardSettings | null;
@@ -151,49 +151,11 @@ async function handleSend() {
   }
 }
 
-function hydrateSettingsUI(settings: SecGuardSettings) {
-  apiKeyInput.value = settings.apiKey ?? "";
-  authHeaderInput.value = settings.authHeader ?? "";
-  llmEndpointInput.value = settings.llmEndpoint ?? "";
-  mcpServerInput.value = settings.mcpServer ?? "";
-  mcpToolInput.value = settings.mcpTool ?? "";
-  autoRunCheckbox.checked = Boolean(settings.autoRun);
-}
-
-async function saveSettings() {
-  const payload: Partial<SecGuardSettings> = {
-    ...(state.settings ?? {}),
-    apiKey: apiKeyInput.value.trim(),
-    authHeader: authHeaderInput.value.trim(),
-    llmEndpoint: llmEndpointInput.value.trim(),
-    mcpServer: mcpServerInput.value.trim(),
-    mcpTool: mcpToolInput.value.trim(),
-    autoRun: autoRunCheckbox.checked
-  };
-
-  try {
-    const saved = await StorageService.saveSettings(payload);
-    state.settings = saved;
-    agent.updateSettings(saved);
-    setStatus("配置已保存");
-    drawer.classList.remove("open");
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "配置保存失败，请重试。";
-    pushMessage({
-      role: "system",
-      label: "保存失败",
-      content: message
-    });
-  }
-}
-
 async function bootstrap() {
   setStatus("载入配置…");
   try {
     const settings = await StorageService.getSettings();
     state.settings = settings;
-    hydrateSettingsUI(settings);
     agent.updateSettings(settings);
     setStatus("准备就绪");
     pushMessage({
@@ -213,13 +175,13 @@ async function bootstrap() {
   }
 }
 
-toggleSettingsBtn.addEventListener("click", () =>
-  drawer.classList.toggle("open")
-);
-closeSettingsBtn.addEventListener("click", () =>
-  drawer.classList.remove("open")
-);
-saveSettingsBtn.addEventListener("click", saveSettings);
+openOptionsBtn.addEventListener("click", () => {
+  if (chrome?.runtime?.openOptionsPage) {
+    chrome.runtime.openOptionsPage();
+  } else if (chrome?.runtime?.id) {
+    window.open(`chrome://extensions/?options=${chrome.runtime.id}`, "_blank");
+  }
+});
 sendBtn.addEventListener("click", handleSend);
 
 alertInput.addEventListener("keydown", (event) => {
@@ -227,6 +189,56 @@ alertInput.addEventListener("keydown", (event) => {
     handleSend();
   }
 });
+
+if (chrome?.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && STORAGE_KEY in changes) {
+      StorageService.getSettings()
+        .then((settings) => {
+          state.settings = settings;
+          agent.updateSettings(settings);
+          setStatus("配置已更新");
+        })
+        .catch(() => setStatus("更新配置失败"));
+    }
+  });
+}
+
+if (resizeHandle) {
+  let isResizing = false;
+
+  const handleMouseMove = (event: MouseEvent) => {
+    if (!isResizing) return;
+    const minWidth = 360;
+    const maxWidth = 900;
+    const viewportWidth = window.innerWidth;
+    const distanceFromRight = viewportWidth - event.clientX;
+    const nextWidth = Math.min(
+      maxWidth,
+      Math.max(minWidth, distanceFromRight)
+    );
+    const shell = document.querySelector(".popup-shell") as HTMLElement | null;
+    if (shell) {
+      shell.style.width = `${nextWidth}px`;
+    }
+  };
+
+  const stopResizing = () => {
+    if (!isResizing) return;
+    isResizing = false;
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("mouseup", stopResizing);
+    window.removeEventListener("mouseleave", stopResizing);
+  };
+
+  resizeHandle.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    isResizing = true;
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResizing);
+    window.addEventListener("mouseleave", stopResizing);
+  });
+}
 
 bootstrap();
 

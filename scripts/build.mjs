@@ -22,7 +22,10 @@ const aliasPlugin = {
 
 async function bundle() {
   await build({
-    entryPoints: [path.join(ROOT, "src/popup/popup.ts")],
+    entryPoints: [
+      path.join(ROOT, "src/popup/popup.ts"),
+      path.join(ROOT, "src/options/options.ts")
+    ],
     outdir: DIST,
     bundle: true,
     format: "esm",
@@ -46,6 +49,17 @@ async function copyStatic() {
   await cp(path.join(ROOT, "src/popup/popup.css"), path.join(DIST, "popup/popup.css"), {
     recursive: true
   });
+  await cp(
+    path.join(ROOT, "src/options/options.html"),
+    path.join(DIST, "options/options.html"),
+    { recursive: true }
+  );
+  await cp(
+    path.join(ROOT, "src/options/options.css"),
+    path.join(DIST, "options/options.css"),
+    { recursive: true }
+  );
+  await cp(path.join(ROOT, "src/background.js"), path.join(DIST, "background.js"));
   const assetsSrc = path.join(ROOT, "assets");
   await cp(assetsSrc, path.join(DIST, "assets"), { recursive: true }).catch((error) => {
     if (error.code !== "ENOENT") throw error;

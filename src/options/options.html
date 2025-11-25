@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SecGuard 配置</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main class="options-shell">
+      <header>
+        <div>
+          <h1>SecGuard 配置中心</h1>
+          <p>管理 LangChain 模型与 MCP Server 参数</p>
+        </div>
+        <button id="back-to-popup" class="ghost-btn" type="button">
+          返回对话
+        </button>
+      </header>
+
+      <section class="card">
+        <h2>大模型设置</h2>
+        <div class="field">
+          <label for="llm-endpoint">API 地址</label>
+          <input
+            id="llm-endpoint"
+            type="url"
+            placeholder="https://api.openai.com/v1/chat/completions"
+          />
+        </div>
+        <div class="field">
+          <label for="api-key">API Key</label>
+          <input id="api-key" type="password" placeholder="sk-..." />
+        </div>
+        <div class="field">
+          <label for="model-name">模型名称</label>
+          <input id="model-name" list="model-presets" placeholder="gpt-4o-mini" />
+          <datalist id="model-presets">
+            <option value="gpt-4o-mini"></option>
+            <option value="gpt-4o"></option>
+            <option value="qwen-max"></option>
+            <option value="deepseek-chat"></option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="access-code">Access Code (自动拼接为 Authorization: ACCESSCODE ...)</label>
+          <input
+            id="access-code"
+            type="password"
+            placeholder="********"
+            autocomplete="off"
+          />
+        </div>
+        <div class="inline-actions">
+          <button id="test-llm" type="button">测试模型连接</button>
+          <span id="model-test-status" class="status"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>MCP Server</h2>
+        <div class="field">
+          <label for="mcp-server">Server URL</label>
+          <input
+            id="mcp-server"
+            type="url"
+            placeholder="https://your-mcp.example.com/rpc"
+          />
+        </div>
+        <div class="field">
+          <label for="mcp-tool">默认工具</label>
+          <input id="mcp-tool" type="text" placeholder="security_enrichment" />
+        </div>
+        <div class="checkbox-field">
+          <input id="auto-run" type="checkbox" />
+          <label for="auto-run">自动触发 MCP 工具</label>
+        </div>
+        <div class="inline-actions">
+          <button id="test-mcp" type="button">测试 MCP 连接</button>
+          <span id="mcp-test-status" class="status"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>保存配置</h2>
+        <div class="field">
+          <label for="max-steps">最大 ReAct 步数</label>
+          <input id="max-steps" type="number" min="1" max="12" />
+        </div>
+        <button id="save-config" type="button" class="primary-btn">
+          保存配置
+        </button>
+        <span id="save-status" class="status"></span>
+      </section>
+    </main>
+
+    <script type="module" src="./options.js"></script>
+  </body>
+</html>
+

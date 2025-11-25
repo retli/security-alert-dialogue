@@ -11,8 +11,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@langchain/openai": "^1.1.2",
-    "langchain": "^1.0.6",
     "zod": "^4.1.13"
   },
   "devDependencies": {

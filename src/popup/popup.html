@@ -6,13 +6,14 @@
     <link rel="stylesheet" href="./popup.css" />
   </head>
   <body>
+    <div class="resize-handle" id="resize-handle" aria-hidden="true"></div>
     <div class="popup-shell">
       <header class="popup-header">
         <div>
           <h1>SecGuard 对话</h1>
           <p>轻量安全告警 · ReAct 流程</p>
         </div>
-        <button id="toggle-settings" class="ghost-btn" aria-label="设置">
+        <button id="open-options" class="ghost-btn" aria-label="设置">
           ⚙️
         </button>
       </header>
@@ -35,64 +36,6 @@
         </div>
       </section>
     </div>
-
-    <aside class="settings-drawer" id="settings-drawer">
-      <header>
-        <h2>配置</h2>
-        <button id="close-settings" class="ghost-btn">✖</button>
-      </header>
-      <section>
-        <h3>大模型</h3>
-        <label class="field">
-          <span>API 地址</span>
-          <input
-            id="llm-endpoint"
-            type="url"
-            placeholder="https://api.openai.com/v1/chat/completions"
-          />
-        </label>
-        <label class="field">
-          <span>API Key</span>
-          <input id="api-key" type="password" placeholder="sk-..." />
-        </label>
-        <label class="field">
-          <span>Authorization（可选）</span>
-          <input
-            id="auth-header"
-            type="text"
-            placeholder="Bearer xxx / Basic xxx"
-          />
-        </label>
-      </section>
-
-      <section>
-        <h3>MCP Server</h3>
-        <label class="field">
-          <span>Server URL</span>
-          <input
-            id="mcp-server"
-            type="url"
-            placeholder="https://your-mcp.example.com/rpc"
-          />
-        </label>
-        <label class="field">
-          <span>默认工具</span>
-          <input
-            id="mcp-tool"
-            type="text"
-            placeholder="security_enrichment"
-          />
-        </label>
-        <div class="checkbox-field">
-          <input id="auto-run" type="checkbox" />
-          <label for="auto-run">自动触发 MCP 工具</label>
-        </div>
-      </section>
-
-      <div class="drawer-actions">
-        <button id="save-settings">保存配置</button>
-      </div>
-    </aside>
 
     <script type="module" src="./popup.js"></script>
   </body>
