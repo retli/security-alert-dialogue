@@ -59,12 +59,12 @@ security-alert-dialogue/
 | API Key | 仅写入请求头 `apikey: *****`，不再附带 Bearer |
 | Access Code | 自动拼接为 `Authorization: ACCESSCODE ********`，与 Cursor 同款鉴权保持一致 |
 | 模型名称 | 下拉选择常用模型或输入自定义名称 |
-| MCP Server | 可保存多个 Server，每个包含名称与 URL |
-| 自动发现工具 | 点击「发现工具」后会通过 GET 请求列出 `tools`，并自动填充到下拉框 |
+| MCP Server (SSE) | 可保存多个 Server（需填写 SSE Endpoint，如 `https://xxx/sse`） |
+| 自动发现工具 | 点击「发现工具」后会通过 MCP SSE 握手（initialize → tools/list）列出全部工具 |
 | 默认工具 | 在下拉框中选择的工具将作为 `Action` 的默认值 |
 | 自动触发 MCP | 关闭时需要人工执行工具，开启则自动调用 |
 
-> 插件使用 `chrome.storage.local` 存储配置，可在 Options 页面为多个 MCP Server 命名管理、自动发现工具，并点击「测试模型连接」或「测试 MCP 连接」即时验证。未填 API Key 时会走本地 Mock 流程，方便离线演示。
+> 插件使用 `chrome.storage.local` 存储配置，可在 Options 页面为多个 MCP Server 命名管理，并通过 SSE 自动发现工具列表；「测试 MCP 连接」同样会完整执行 initialize → tools/list 以确认服务可用。未填 API Key 时会走本地 Mock 流程，方便离线演示。
 
 ### ReAct 运行方式
 

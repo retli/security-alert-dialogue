@@ -3,6 +3,7 @@ import {
   type SecGuardSettings,
   type McpServerConfig
 } from "../services/storage";
+import { discoverMcpTools } from "../services/mcpDiscovery";
 
 const llmEndpointInput = document.getElementById(
   "llm-endpoint"
@@ -233,13 +234,7 @@ async function testMcpConnection(settings: SecGuardSettings) {
   if (!server) {
     throw new Error("请先保存一个 MCP Server");
   }
-
-  const response = await fetch(server.url, { method: "GET" });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(errText || `HTTP ${response.status}`);
-  }
+  await discoverMcpTools(server.url);
 }
 
 async function handleSave(payload?: Partial<SecGuardSettings>) {
@@ -270,45 +265,17 @@ async function bootstrap() {
   }
 }
 
-function extractToolNames(data: unknown): string[] {
-  if (!data) return [];
-  if (Array.isArray(data)) {
-    if (data.every((item) => typeof item === "string")) {
-      return data as string[];
-    }
-    return data
-      .map((item) =>
-        item && typeof item === "object" && "name" in item
-          ? String((item as Record<string, unknown>).name)
-          : ""
-      )
-      .filter(Boolean);
-  }
-  if (typeof data === "object") {
-    if (Array.isArray((data as Record<string, unknown>).tools)) {
-      return extractToolNames((data as Record<string, unknown>).tools);
-    }
-  }
-  return [];
-}
-
 discoverBtn.addEventListener("click", async () => {
   const url = serverUrlInput.value.trim();
   if (!url) {
-    setStatus(discoverStatus, "请填写 Server URL", "error");
+    setStatus(discoverStatus, "请填写 Server SSE 地址", "error");
     return;
   }
   setStatus(discoverStatus, "发现中…");
   try {
-    const response = await fetch(url, { method: "GET" });
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(errText || `HTTP ${response.status}`);
-    }
-    const data = await response.json().catch(() => null);
-    const tools = extractToolNames(data);
+    const tools = await discoverMcpTools(url);
     if (!tools.length) {
-      throw new Error("未发现任何工具，请检查返回格式");
+      throw new Error("未发现任何工具，请检查 MCP Server 是否注册工具");
     }
     renderToolOptions(tools, tools[0]);
     setStatus(discoverStatus, `发现 ${tools.length} 个工具`, "success");
