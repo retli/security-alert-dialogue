@@ -9,6 +9,7 @@ export interface McpTool {
   parameters?: unknown;
   inputSchema?: unknown;
   outputSchema?: unknown;
+  enabled?: boolean;
   [key: string]: unknown;
 }
 
@@ -85,15 +86,22 @@ function normalizeToolEntry(entry: unknown): McpTool | null {
   if (typeof entry === "string") {
     const name = entry.trim();
     if (!name) return null;
-    return { name };
+    return { name, enabled: true };
   }
   if (typeof entry === "object") {
     const candidate = entry as Record<string, unknown>;
-    const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+    const name =
+      typeof candidate.name === "string" && candidate.name.trim()
+        ? candidate.name.trim()
+        : typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id.trim()
+          : "";
     if (!name) {
       return null;
     }
-    return { ...candidate, name } as McpTool;
+    const enabled =
+      typeof candidate.enabled === "boolean" ? candidate.enabled : true;
+    return { ...candidate, name, enabled } as McpTool;
   }
   return null;
 }
@@ -114,7 +122,7 @@ function normalizeServers(settings: Partial<SecGuardSettings>) {
         id: generateId(),
         name: "默认 Server",
         url: (settings as any).mcpServer,
-        tools: next.mcpTool ? [{ name: next.mcpTool }] : []
+        tools: next.mcpTool ? [{ name: next.mcpTool, enabled: true }] : []
       }
     ];
     next.activeMcpServerId = next.mcpServers[0].id;

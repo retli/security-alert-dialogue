@@ -2,8 +2,8 @@ import type { SecGuardSettings, McpTool } from "../services/storage";
 import { MCPClient } from "../services/mcpClient";
 import type { MCPResult } from "../services/mcpClient";
 
-const SYSTEM_PROMPT = `你是一名资深安全运营工程师，按照 ReAct（Reasoning + Acting）流程分析安全告警。
-输出格式严格遵循：
+const SYSTEM_PROMPT = `你是 “AI SOC Chat” 的核心分析官，服务于 Security Operations Center (SOC) 与 Incident Response (IR) 团队，请严格按照 ReAct（Reasoning + Acting）流程开展告警研判。
+输出格式必须遵循：
 Thought: <你的思考>
 Action: <工具名称或 None>
 Action Input: <JSON 或文本参数>
@@ -14,7 +14,13 @@ Final Answer: <仅在完成全部推理后输出>
 - MCP.<tool>：调用用户提供的 MCP 工具，tool 为具体名称。
 - report：整理处置建议。
 
-必须使用中文回答，且不得泄露任何密钥。`;
+SOC / IR 行为准则：
+- 优先从 Observation 中提炼情报；若工具无结果必须明确说明“未查询到相关信息”，禁止臆造。
+- 输出的任何结论都需要引用 Observation 的字段（资产、IOC、时间线、风险等级等）或说明来源。
+- 处理高危事件时，需要给出封堵/遏制/根因分析/恢复等 IR 建议，并提示是否需要升级或跨团队协作。
+- 工具返回 JSON/表格时，请提炼关键字段写入 Thought 与 Final Answer，保持结构化且简洁。
+- 如果连续多次调用仍无帮助，应停止动作、总结瓶颈并给出后续人工排查建议。
+- 全程使用中文，不得泄露密钥或内部实现细节。`;
 
 function formatJsonSnippet(payload: unknown) {
   if (payload === undefined || payload === null) return "";
@@ -26,6 +32,31 @@ function formatJsonSnippet(payload: unknown) {
   } catch {
     return String(payload);
   }
+}
+
+function truncateText(text: string, max = 500) {
+  if (!text) return "";
+  return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+}
+
+function summarizeObservation(result: MCPResult): string {
+  if (typeof result === "string") {
+    return truncateText(result.trim());
+  }
+  if (Array.isArray(result)) {
+    return result
+      .slice(0, 5)
+      .map((entry, index) => `${index + 1}. ${summarizeObservation(entry as MCPResult)}`)
+      .join("\n");
+  }
+  if (result && typeof result === "object") {
+    const entries = Object.entries(result as Record<string, unknown>).slice(0, 6);
+    if (!entries.length) return "[空对象]";
+    return entries
+      .map(([key, value]) => `${key}: ${truncateText(formatJsonSnippet(value)).replace(/\s+/g, " ").trim()}`)
+      .join("\n");
+  }
+  return String(result ?? "");
 }
 
 function buildUserPrompt(alert: string, tools: McpTool[]) {
@@ -234,11 +265,17 @@ export class ReactAgent {
       settings.mcpServers?.find(
         (srv) => srv.id === settings.activeMcpServerId
       ) || settings.mcpServers?.[0];
-    this.availableTools = activeServer?.tools ?? [];
+    const tools = activeServer?.tools ?? [];
+    this.availableTools = tools.filter((tool) => tool.enabled !== false);
+    const defaultTool = this.availableTools.find(
+      (tool) => tool.name === settings.mcpTool
+    )
+      ? settings.mcpTool
+      : this.availableTools[0]?.name;
     this.mcpClient.updateConfig({
       servers: settings.mcpServers ?? [],
       activeServerId: settings.activeMcpServerId ?? null,
-      defaultTool: settings.mcpTool
+      defaultTool
     });
   }
 
@@ -310,18 +347,20 @@ export class ReactAgent {
       try {
         const actionInput = safeParseJSON(parsed.actionInput || "{}");
         const observation = await this.executeTool(parsed.action, actionInput);
-        const observationText = normalizeObservation(observation);
+        const observationRaw = normalizeObservation(observation);
+        const observationDisplay =
+          summarizeObservation(observation) || observationRaw;
 
         emit({
           type: "observation",
           step,
-          content: observationText
+          content: observationDisplay
         });
 
         messages.push({ role: "assistant", content: llmText });
         messages.push({
           role: "user",
-          content: `Observation: ${observationText}`
+          content: `Observation (${parsed.action}): ${observationRaw}`
         });
       } catch (error) {
         const message =

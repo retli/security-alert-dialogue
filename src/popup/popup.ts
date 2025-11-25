@@ -63,6 +63,7 @@ function renderConversation() {
     }
 
     const content = document.createElement("div");
+    content.className = "message-content";
     content.textContent = msg.content;
     node.appendChild(content);
 
@@ -131,7 +132,7 @@ async function handleSend() {
   });
 
   alertInput.value = "";
-  setStatus("LangChain 推理中…");
+  setStatus("模型推理中…");
   toggleLoading(true);
 
   try {
@@ -160,8 +161,8 @@ async function bootstrap() {
     setStatus("准备就绪");
     pushMessage({
       role: "system",
-      label: "SecGuard",
-      content: "LangChain ReAct 模式已准备，可以开始分析告警。"
+      label: "AI SOC Chat",
+      content: "AI SOC Chat 已载入，可直接输入告警并开始模型推理。"
     });
   } catch (error) {
     const message =

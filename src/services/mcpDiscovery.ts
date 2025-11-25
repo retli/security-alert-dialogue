@@ -5,7 +5,7 @@ function toToolObject(entry: unknown): McpTool | null {
   if (!entry) return null;
   if (typeof entry === "string") {
     const name = entry.trim();
-    return name ? { name } : null;
+    return name ? { name, enabled: true } : null;
   }
   if (typeof entry === "object") {
     const obj = entry as Record<string, unknown>;
@@ -16,7 +16,9 @@ function toToolObject(entry: unknown): McpTool | null {
           ? obj.id.trim()
           : "";
     if (!name) return null;
-    return { ...obj, name } as McpTool;
+    const enabled =
+      typeof obj.enabled === "boolean" ? obj.enabled : true;
+    return { ...obj, name, enabled } as McpTool;
   }
   return null;
 }

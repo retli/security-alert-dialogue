@@ -1,10 +1,10 @@
-## SecGuard ReAct Dialog
+## AI SOC Chat
 
-轻量级 Chrome 插件，以对话框形式协助处理安全告警。核心能力：
+面向 SOC / IR 团队的轻量级 Chrome 插件，以对话框形式协助处理安全告警。核心能力：
 
 - 自研 ReAct Agent：通过定制 LLM 请求与工具循环自动解析 `Thought / Action / Observation / Final Answer`。
 - 自定义大模型：通过 API 地址、API Key、Access Code 三项配置对接任意兼容接口，并可在 Options 页面一键测试。
-- MCP Server 管理：支持为每个 Server 命名、自动发现工具列表并以下拉方式选择默认工具，可保存多个 Server 并在侧栏中切换。
+- MCP Server 管理：基于 MCP SSE/JSON-RPC 自动发现工具，支持为每个 Server 命名、逐个启用/禁用工具并选择默认工具，可保存多个 Server 并在侧栏中切换。
 - Cursor 风格 UI：深色对话面板、单输入框快速粘贴，支持快捷键 `⌘/Ctrl + Enter` 发送。
 
 ### 目录结构
@@ -62,6 +62,7 @@ security-alert-dialogue/
 | MCP Server (SSE) | 可保存多个 Server（需填写 SSE Endpoint，如 `https://xxx/sse`） |
 | 自动发现工具 | 点击「发现工具」后会通过 MCP SSE 握手（initialize → tools/list）列出全部工具 |
 | 默认工具 | 在下拉框中选择的工具将作为 `Action` 的默认值 |
+| 工具启用 | 发现工具后可为每个 MCP 工具单独开关启用状态，Prompt 中仅列出启用的工具 |
 | 自动触发 MCP | 关闭时需要人工执行工具，开启则自动调用 |
 
 > 插件使用 `chrome.storage.local` 存储配置，可在 Options 页面为多个 MCP Server 命名管理，并通过 SSE 自动发现工具列表；「测试 MCP 连接」同样会完整执行 initialize → tools/list 以确认服务可用。未填 API Key 时会走本地 Mock 流程，方便离线演示。
@@ -74,9 +75,10 @@ security-alert-dialogue/
 
 ### MCP Server 约定
 
-- HTTP `POST` 接口，Body 包含 `tool` 与 `input`。
-- 返回 `application/json` 时会渲染为 JSON 文本；非 JSON 则原样显示。
-- 可在 `src/services/mcpClient.ts` 中调整鉴权 Header 或路由。
+- 采用 MCP 官方的 SSE + JSON-RPC 交互：`/sse` 建立 EventSource，随后在 Session URL 上执行 `initialize / notifications/initialized / tools/list / tools/call`。
+- 工具描述应包含 `name / description / args / returns / examples` 等字段，插件会写入 Prompt，让 LLM 完整理解调用方式。
+- 返回体遵循 MCP `content` 或 JSON 结构即可，UI 会自动做简要摘要展示；原始内容也会注入 Observation。
+- 可在 `src/services/mcpClient.ts` 中调整鉴权 Header、超时及额外参数。
 
 ### 开发提示
 

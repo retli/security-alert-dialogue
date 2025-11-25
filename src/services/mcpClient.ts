@@ -34,6 +34,7 @@ export interface MCPConfig {
 export type MCPResult =
   | string
   | Record<string, unknown>
+  | unknown[]
   | {
       status: string;
       message: string;

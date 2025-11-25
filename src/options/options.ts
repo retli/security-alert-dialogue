@@ -29,6 +29,9 @@ const serverUrlInput = document.getElementById(
 const toolSelect = document.getElementById(
   "mcp-tool-select"
 ) as HTMLSelectElement;
+const toolListEl = document.getElementById(
+  "mcp-tool-list"
+) as HTMLElement;
 
 const discoverBtn = document.getElementById(
   "discover-tools"
@@ -105,18 +108,18 @@ function renderServerOptions(selectedId?: string | null) {
   serverSelect.value = targetId || "";
 }
 
-function renderToolOptions(tools: McpTool[], selected?: string) {
+function renderToolSelect(tools: McpTool[], selected?: string) {
   toolSelect.innerHTML = "";
-  currentFormTools = tools ?? [];
-  if (!tools.length) {
+  const enabledTools = tools.filter((tool) => tool.enabled !== false);
+  if (!enabledTools.length) {
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = "暂无工具，请先发现";
+    placeholder.textContent = "暂无可用工具";
     toolSelect.appendChild(placeholder);
     toolSelect.value = "";
     return;
   }
-  tools.forEach((tool) => {
+  enabledTools.forEach((tool) => {
     const option = document.createElement("option");
     option.value = tool.name;
     option.textContent = tool.description
@@ -125,26 +128,92 @@ function renderToolOptions(tools: McpTool[], selected?: string) {
     toolSelect.appendChild(option);
   });
   const targetName =
-    selected && tools.some((tool) => tool.name === selected)
+    selected && enabledTools.some((tool) => tool.name === selected)
       ? selected
-      : tools[0]?.name;
-  if (targetName) {
-    toolSelect.value = targetName;
-  } else {
-    toolSelect.value = "";
+      : enabledTools[0]?.name;
+  toolSelect.value = targetName ?? "";
+}
+
+function renderToolList(tools: McpTool[]) {
+  toolListEl.innerHTML = "";
+  if (!tools.length) {
+    const empty = document.createElement("p");
+    empty.className = "tool-list-empty";
+    empty.textContent = "暂无工具，请先点击「发现工具」";
+    toolListEl.appendChild(empty);
+    return;
   }
+
+  tools.forEach((tool) => {
+    const row = document.createElement("label");
+    row.className = "tool-item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = tool.enabled !== false;
+    checkbox.addEventListener("change", () => {
+      const target = currentFormTools.find((item) => item.name === tool.name);
+      if (target) {
+        target.enabled = checkbox.checked;
+        renderToolSelect(currentFormTools, toolSelect.value);
+      }
+    });
+
+    const meta = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = tool.name;
+    meta.appendChild(title);
+
+    const desc = document.createElement("p");
+    if (tool.description) {
+      desc.textContent = tool.description;
+    } else if (tool.args || tool.parameters) {
+      desc.textContent = `参数：${formatToolSnippet(
+        tool.args ?? tool.parameters
+      )}`;
+    } else if (tool.returns || tool.outputSchema) {
+      desc.textContent = `返回：${formatToolSnippet(
+        tool.returns ?? tool.outputSchema
+      )}`;
+    } else {
+      desc.textContent = "暂无描述";
+    }
+    meta.appendChild(desc);
+
+    row.appendChild(checkbox);
+    row.appendChild(meta);
+    toolListEl.appendChild(row);
+  });
+}
+
+function formatToolSnippet(payload: unknown) {
+  if (payload === undefined || payload === null) return "";
+  try {
+    const serialized = JSON.stringify(payload);
+    return serialized.length > 60
+      ? `${serialized.slice(0, 57)}...`
+      : serialized;
+  } catch {
+    return String(payload);
+  }
+}
+
+function renderToolUI(tools: McpTool[], selected?: string) {
+  currentFormTools = tools ?? [];
+  renderToolList(currentFormTools);
+  renderToolSelect(currentFormTools, selected);
 }
 
 function hydrateServerForm(server: McpServerConfig | null, selectedTool?: string) {
   if (!server) {
     serverNameInput.value = "";
     serverUrlInput.value = "";
-    renderToolOptions([], "");
+    renderToolUI([], "");
     return;
   }
   serverNameInput.value = server.name ?? "";
   serverUrlInput.value = server.url ?? "";
-  renderToolOptions(server.tools ?? [], selectedTool);
+  renderToolUI(server.tools ?? [], selectedTool);
 }
 
 function hydrateForm(settings: SecGuardSettings) {
@@ -286,7 +355,7 @@ discoverBtn.addEventListener("click", async () => {
     if (!tools.length) {
       throw new Error("未发现任何工具，请检查 MCP Server 是否注册工具");
     }
-    renderToolOptions(tools, tools[0]?.name);
+    renderToolUI(tools, tools[0]?.name);
     setStatus(discoverStatus, `发现 ${tools.length} 个工具`, "success");
   } catch (error) {
     const message =
@@ -334,6 +403,7 @@ saveServerBtn.addEventListener("click", async () => {
   serversState.activeId = target.id;
   renderServerOptions(target.id);
   toolSelect.value = selectedTool;
+  renderToolUI(target.tools, selectedTool);
 
   await handleSave({
     ...collectFormSettings(),
