@@ -107,6 +107,77 @@ function normalizeLLMContent(raw: unknown): string {
   return "";
 }
 
+function collectContentText(block: unknown): string {
+  if (!block) return "";
+  if (typeof block === "string") return block;
+  if (Array.isArray(block)) {
+    return block
+      .map((item) => collectContentText(item))
+      .filter(Boolean)
+      .join("");
+  }
+  if (typeof block === "object") {
+    if ("text" in (block as Record<string, unknown>)) {
+      const text = (block as { text?: unknown }).text;
+      return typeof text === "string" ? text : "";
+    }
+    if ("content" in (block as Record<string, unknown>)) {
+      return collectContentText((block as { content?: unknown }).content);
+    }
+    if ("data" in (block as Record<string, unknown>)) {
+      const data = (block as { data?: unknown }).data;
+      try {
+        return JSON.stringify(data);
+      } catch {
+        return String(data ?? "");
+      }
+    }
+    if ("json" in (block as Record<string, unknown>)) {
+      const jsonData = (block as { json?: unknown }).json;
+      try {
+        return JSON.stringify(jsonData, null, 2);
+      } catch {
+        return String(jsonData ?? "");
+      }
+    }
+  }
+  return "";
+}
+
+function parseSseCompletionPayload(raw: string): string {
+  if (!raw) return "";
+  const chunks = raw.split(/\n\n+/);
+  const parts: string[] = [];
+  for (const chunk of chunks) {
+    const trimmed = chunk.trim();
+    if (!trimmed) continue;
+    if (
+      trimmed === "data: [DONE]" ||
+      trimmed === "[DONE]" ||
+      trimmed === "data:[DONE]"
+    ) {
+      break;
+    }
+    const dataLine = trimmed.startsWith("data:")
+      ? trimmed.replace(/^data:\s*/, "")
+      : trimmed;
+    if (!dataLine) continue;
+    try {
+      const payload = JSON.parse(dataLine);
+      const delta = payload?.choices?.[0]?.delta;
+      const deltaContent =
+        delta?.content ?? delta?.text ?? delta?.content ?? "";
+      const text = collectContentText(deltaContent);
+      if (text) {
+        parts.push(text);
+      }
+    } catch {
+      continue;
+    }
+  }
+  return parts.join("");
+}
+
 export class ReactAgent {
   private settings: SecGuardSettings | null = null;
   private mcpClient = new MCPClient();
@@ -244,6 +315,17 @@ export class ReactAgent {
       throw new Error(
         `LLM 请求失败 (${response.status}): ${errText || "Unknown"}`
       );
+    }
+
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+
+    if (contentType.includes("text/event-stream")) {
+      const rawStream = await response.text().catch(() => "");
+      const aggregated = parseSseCompletionPayload(rawStream).trim();
+      if (aggregated) {
+        return aggregated;
+      }
+      return "LLM 流式响应为空，请检查模型是否已启用非流模式或正确返回 delta.content。";
     }
 
     const data = await response.json().catch(() => ({}));

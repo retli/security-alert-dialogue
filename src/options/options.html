@@ -2,57 +2,52 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <title>SecGuard 配置</title>
+    <title>SecGuard 配置中心</title>
     <link rel="stylesheet" href="./options.css" />
   </head>
   <body>
-    <main class="options-shell">
+    <div class="options-shell">
       <header>
         <div>
-          <h1>SecGuard 配置中心</h1>
-          <p>管理 LangChain 模型与 MCP Server 参数</p>
+          <h1>SecGuard 配置</h1>
+          <p>管理 LLM 与 MCP Server 的所有参数</p>
         </div>
-        <button id="back-to-popup" class="ghost-btn" type="button">
-          返回对话
-        </button>
+        <button id="back-to-popup" class="ghost-btn">返回对话</button>
       </header>
 
       <section class="card">
-        <h2>大模型设置</h2>
+        <h2>LLM 设置</h2>
         <div class="field">
           <label for="llm-endpoint">API 地址</label>
           <input
             id="llm-endpoint"
             type="url"
-            placeholder="https://api.openai.com/v1/chat/completions"
+            placeholder="https://api.your-llm.com/v1/chat/completions"
           />
         </div>
         <div class="field">
           <label for="api-key">API Key</label>
-          <input id="api-key" type="password" placeholder="sk-..." />
+          <input id="api-key" type="password" placeholder="sk-xxxx" />
         </div>
         <div class="field">
           <label for="model-name">模型名称</label>
-          <input id="model-name" list="model-presets" placeholder="gpt-4o-mini" />
-          <datalist id="model-presets">
-            <option value="gpt-4o-mini"></option>
-            <option value="gpt-4o"></option>
-            <option value="qwen-max"></option>
-            <option value="deepseek-chat"></option>
-          </datalist>
+          <input id="model-name" type="text" placeholder="gpt-4o, qwen, etc." />
         </div>
         <div class="field">
-          <label for="access-code">Access Code (自动拼接为 Authorization: ACCESSCODE ...)</label>
-          <input
-            id="access-code"
-            type="password"
-            placeholder="********"
-            autocomplete="off"
-          />
+          <label for="access-code">Authorization (可选)</label>
+          <input id="access-code" type="text" placeholder="ACCESSCODE xxxx" />
+        </div>
+        <div class="checkbox-field">
+          <input id="auto-run" type="checkbox" />
+          <label for="auto-run">自动执行 ReAct 中的 MCP Action</label>
+        </div>
+        <div class="field">
+          <label for="max-steps">最大 ReAct 步数</label>
+          <input id="max-steps" type="number" min="1" max="12" value="6" />
         </div>
         <div class="inline-actions">
-          <button id="test-llm" type="button">测试模型连接</button>
-          <span id="model-test-status" class="status"></span>
+          <button id="test-llm">测试模型连接</button>
+          <span id="model-test-status" class="status">等待测试</span>
         </div>
       </section>
 
@@ -64,7 +59,7 @@
         </div>
         <div class="field">
           <label for="mcp-server-name">Server 名称</label>
-          <input id="mcp-server-name" type="text" placeholder="如：内部情报 MCP" />
+          <input id="mcp-server-name" type="text" placeholder="示例：生产环境" />
         </div>
         <div class="field">
           <label for="mcp-server-url">Server SSE 地址</label>
@@ -75,41 +70,31 @@
           />
         </div>
         <div class="inline-actions">
-          <button id="discover-tools" type="button">发现工具</button>
-          <span id="discover-status" class="status"></span>
+          <button id="discover-tools">发现工具</button>
+          <span id="discover-status" class="status">等待操作</span>
         </div>
         <div class="field">
-          <label for="mcp-tool-select">工具列表</label>
+          <label for="mcp-tool-select">默认工具</label>
           <select id="mcp-tool-select"></select>
         </div>
         <div class="inline-actions">
-          <button id="save-server" type="button">保存/更新 Server</button>
-          <button id="remove-server" type="button" class="ghost-btn">
-            删除当前 Server
-          </button>
-        </div>
-        <div class="checkbox-field">
-          <input id="auto-run" type="checkbox" />
-          <label for="auto-run">自动触发 MCP 工具</label>
+          <button id="save-server" class="primary-btn">保存 Server</button>
+          <button id="remove-server" class="ghost-btn">删除当前 Server</button>
         </div>
         <div class="inline-actions">
-          <button id="test-mcp" type="button">测试 MCP 连接</button>
-          <span id="mcp-test-status" class="status"></span>
+          <button id="test-mcp">测试 MCP 连接</button>
+          <span id="mcp-test-status" class="status">等待测试</span>
         </div>
       </section>
 
       <section class="card">
-        <h2>保存配置</h2>
-        <div class="field">
-          <label for="max-steps">最大 ReAct 步数</label>
-          <input id="max-steps" type="number" min="1" max="12" />
+        <h2>全局操作</h2>
+        <div class="inline-actions">
+          <button id="save-config" class="primary-btn">保存配置</button>
+          <span id="save-status" class="status">尚未保存</span>
         </div>
-        <button id="save-config" type="button" class="primary-btn">
-          保存配置
-        </button>
-        <span id="save-status" class="status"></span>
       </section>
-    </main>
+    </div>
 
     <script type="module" src="./options.js"></script>
   </body>
